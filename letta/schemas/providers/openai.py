@@ -161,12 +161,7 @@ class OpenAIProvider(Provider):
                 ):
                     continue
 
-            # We'll set the model endpoint based on the base URL
-            # Note: openai-proxy just means that the model is using the OpenAIProvider
-            if self.base_url != "https://api.openai.com/v1":
-                handle = self.get_handle(model_name, base_name="openai-proxy")
-            else:
-                handle = self.get_handle(model_name)
+            handle = self.get_handle(model_name)
 
             config = LLMConfig(
                 model=model_name,
