@@ -3,6 +3,7 @@ name: Build and Push to GHCR
 on:
   push:
     branches: [fork]
+    tags: ['*']
   workflow_dispatch:
 
 env:
@@ -47,9 +48,10 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=raw,value=${{ steps.version.outputs.VERSION }}
+            type=raw,value=latest,enable=${{ github.ref_type != 'tag' }}
+            type=raw,value=${{ steps.version.outputs.VERSION }},enable=${{ github.ref_type != 'tag' }}
             type=sha,prefix=
+            type=ref,event=tag
 
       - name: Build and push
         uses: docker/build-push-action@v6
