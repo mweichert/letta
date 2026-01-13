@@ -8,11 +8,13 @@ Usage:
 """
 
 import argparse
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import tomllib
 import yaml
 
 
@@ -37,8 +39,9 @@ class ForkConfig:
 
 
 class ForkBuilder:
-    def __init__(self, config: ForkConfig, dry_run: bool = False):
+    def __init__(self, config: ForkConfig, repo_root: Path, dry_run: bool = False):
         self.config = config
+        self.repo_root = repo_root
         self.dry_run = dry_run
         self.original_branch = self._get_current_branch()
 
@@ -51,6 +54,50 @@ class ForkBuilder:
             check=True,
         )
         return result.stdout.strip()
+
+    def _get_commit(self, ref: str) -> str | None:
+        """Get the commit SHA for a ref, or None if it doesn't exist."""
+        result = subprocess.run(
+            ["git", "rev-parse", "--verify", ref],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip()
+
+    def _get_upstream_version(self) -> str:
+        """Get the version from pyproject.toml."""
+        pyproject_path = self.repo_root / "pyproject.toml"
+        with open(pyproject_path, "rb") as f:
+            data = tomllib.load(f)
+        return data["project"]["version"]
+
+    def _get_next_fork_tag(self, version: str) -> str:
+        """Determine the next fork tag number for the given version."""
+        # List existing tags matching this version
+        result = subprocess.run(
+            ["git", "tag", "-l", f"{version}-fork.*"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        existing_tags = result.stdout.strip().split("\n")
+        existing_tags = [t for t in existing_tags if t]  # Filter empty strings
+
+        if not existing_tags:
+            return f"{version}-fork.1"
+
+        # Find the highest fork number
+        pattern = re.compile(rf"^{re.escape(version)}-fork\.(\d+)$")
+        max_num = 0
+        for tag in existing_tags:
+            match = pattern.match(tag)
+            if match:
+                max_num = max(max_num, int(match.group(1)))
+
+        return f"{version}-fork.{max_num + 1}"
 
     def git_run(self, *args: str, check: bool = True, capture: bool = False) -> subprocess.CompletedProcess:
         """Execute a git command with consistent error handling."""
@@ -137,8 +184,25 @@ class ForkBuilder:
         # Push fork branch
         self.git_run("push", "origin", "fork", "--force-with-lease")
 
+    def tag_fork(self, old_fork_commit: str | None) -> str | None:
+        """Tag the fork if it has changed. Returns the new tag name or None."""
+        new_fork_commit = self._get_commit("fork")
+
+        if old_fork_commit == new_fork_commit:
+            print("\n=== No changes detected, skipping tag ===")
+            return None
+
+        version = self._get_upstream_version()
+        tag_name = self._get_next_fork_tag(version)
+
+        print(f"\n=== Tagging fork as {tag_name} ===")
+        self.git_run("tag", tag_name, "fork")
+        self.git_run("push", "origin", tag_name)
+
+        return tag_name
+
     def run(self) -> None:
-        """Run the full rebuild: sync + rebase + build."""
+        """Run the full rebuild: sync + rebase + build + tag."""
         if self.dry_run:
             print("=== DRY RUN MODE - No changes will be made ===")
 
@@ -148,13 +212,23 @@ class ForkBuilder:
             print("Error: You have uncommitted changes. Please commit or stash them first.")
             sys.exit(1)
 
+        # Save current fork commit to detect changes
+        old_fork_commit = self._get_commit("fork")
+
         self.sync_upstream()
         self.rebase_branches()
         self.build_fork()
 
+        # Tag if changed
+        tag_name = self.tag_fork(old_fork_commit)
+
         print("\n=== Done! ===")
         print(f"\nCommits in fork ahead of {self.config.base}:")
         subprocess.run(["git", "log", "--oneline", f"{self.config.base}..fork"])
+
+        if tag_name:
+            print(f"\nTagged as: {tag_name}")
+            print(f"Docker image will be: ghcr.io/mweichert/letta:{tag_name}")
 
 
 def load_config(config_path: Path) -> ForkConfig:
@@ -191,6 +265,7 @@ What this script does:
   1. Sync      Fetch upstream, reset 'main' to upstream/main, push main
   2. Rebase    Rebase each branch onto its base (topologically sorted)
   3. Build     Create 'fork' from main, merge all branches, push fork
+  4. Tag       If fork changed, create and push tag (e.g., 0.16.2-fork.1)
 
 All changes are pushed to origin automatically.
 
@@ -211,7 +286,7 @@ Configuration is read from fork.yaml in the repository root.
         sys.exit(1)
 
     config = load_config(config_path)
-    builder = ForkBuilder(config, dry_run=args.dry_run)
+    builder = ForkBuilder(config, repo_root, dry_run=args.dry_run)
     builder.run()
 
 
