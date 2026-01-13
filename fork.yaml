@@ -1,0 +1,26 @@
+# Fork composition configuration
+# Defines how the 'fork' branch is built from upstream + feature branches
+#
+# Usage: uv run scripts/build-fork.py
+
+upstream:
+  remote: upstream
+  branch: main
+
+base: main  # Local branch that tracks upstream
+
+branches:
+  - name: feature/better-proxy-support
+    base: main
+    description: Remove hardcoded openai-proxy naming for custom base URLs
+    docs: branches/feature/better-proxy-support.md
+
+  - name: bugfix/streaming-completion-none
+    base: main
+    description: Fix streaming TypeError when completion_tokens is None
+    docs: branches/bugfix/streaming-completion-none.md
+
+  - name: feature/fork-management
+    base: main
+    description: Fork management infrastructure (build script, GHCR workflow, docs)
+    docs: branches/feature/fork-management.md
