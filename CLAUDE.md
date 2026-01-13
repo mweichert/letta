@@ -95,6 +95,28 @@ uv add --dev package_name        # Dev-only dependency
 uv add --optional group package  # Optional group (postgres, redis, dev, etc.)
 ```
 
+## Important: Check Current Branch
+
+At the start of each conversation, note the current branch from the git status context.
+
+### Creating New Feature/Bugfix Branches
+
+When asked to create a new `feature/*` or `bugfix/*` branch, **always use AskUserQuestion** to confirm which branch to base it on:
+
+1. **Default option**: `main` (Recommended) - most changes should branch from here
+2. **Additional options**: List any existing `feature/*` and `bugfix/*` branches from `fork.yaml`
+
+**If the user selects `main`**: First sync with upstream before creating the branch:
+```bash
+git fetch upstream && git checkout main && git reset --hard upstream/main
+```
+
+Then create and checkout the new branch from `main`.
+
+**If the user selects another branch**: Simply create the new branch from that branch (it will be rebased during fork builds).
+
+The `fork` branch is the composed working branch - never branch from it directly.
+
 ## Fork Management
 
 This is a fork of `letta-ai/letta` with a declarative branch composition system.
@@ -151,8 +173,11 @@ This script:
 
 1. Create from main: `git checkout -b feature/my-feature main`
 2. Make changes, commit, push
-3. Add entry to `fork.yaml`
-4. Run `uv run scripts/build-fork.py`
+3. **Create branch documentation** in `branches/<type>/<branch-name>.md` (see existing docs for format)
+4. Add entry to `fork.yaml` on `feature/fork-management` branch (include `docs:` field pointing to documentation)
+5. Run `uv run scripts/build-fork.py`
+
+**Important:** Changes to `fork.yaml`, `CLAUDE.md`, and other fork infrastructure belong in the `feature/fork-management` branch, not directly on `fork`. The `fork` branch is rebuilt from component branches, so direct changes would be overwritten.
 
 ### Removing a Branch
 
