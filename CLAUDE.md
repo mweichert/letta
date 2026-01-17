@@ -159,6 +159,7 @@ branches:
 To sync with upstream, rebase all branches, and rebuild fork:
 
 ```bash
+git checkout feature/fork-management   # Required: script lives on this branch
 uv run scripts/build-fork.py           # Full rebuild
 uv run scripts/build-fork.py --dry-run # Preview changes
 ```
