@@ -998,6 +998,16 @@ letta/.pytest_cache/
 memgpy/pytest.ini
 **/**/pytest_cache
 
+# Nix integration
+shell.nix
+.envrc
+.direnv/
+
+# Local docker-compose files
+scripts/docker-compose.local.yml
+scripts/docker-compose.override.yml
+scripts/data/
+
 ## ignore venvs
 tests/test_tool_sandbox/restaurant_management_system/venv
 
