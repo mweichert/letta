@@ -104,7 +104,7 @@ At the start of each conversation, note the current branch from the git status c
 When asked to create a new `feature/*` or `bugfix/*` branch, **always use AskUserQuestion** to confirm which branch to base it on:
 
 1. **Default option**: `main` (Recommended) - most changes should branch from here
-2. **Additional options**: List any existing `feature/*` and `bugfix/*` branches from `fork.yaml`
+2. **Additional options**: List any existing `feature/*` and `bugfix/*` branches from `fork.yaml` (in parent directory)
 
 **If the user selects `main`**: First sync with upstream before creating the branch:
 ```bash
@@ -121,6 +121,22 @@ The `fork` branch is the composed working branch - never branch from it directly
 
 This is a fork of `letta-ai/letta` with a declarative branch composition system.
 
+**Fork management infrastructure is in the parent directory:** `~/Projects/forks/letta/`
+
+See `~/Projects/forks/letta/CLAUDE.md` for:
+- Fork composition configuration (`fork.yaml`)
+- Build script (`scripts/build-fork.py`)
+- Branch documentation (`branches/`)
+- Detailed fork management instructions
+
+### Quick Reference
+
+```bash
+cd ~/Projects/forks/letta
+uv run scripts/build-fork.py           # Full rebuild
+uv run scripts/build-fork.py --dry-run # Preview changes
+```
+
 ### Branch Structure
 
 | Branch | Purpose |
@@ -136,55 +152,6 @@ This is a fork of `letta-ai/letta` with a declarative branch composition system.
 
 - `origin` - mweichert/letta (this fork)
 - `upstream` - letta-ai/letta (upstream repo)
-
-### Configuration
-
-The fork composition is defined in `fork.yaml`:
-
-```yaml
-upstream:
-  remote: upstream
-  branch: main
-
-base: main
-
-branches:
-  - name: feature/better-proxy-support
-    base: main
-    description: Remove hardcoded openai-proxy naming for custom base URLs
-```
-
-### Rebuilding the Fork
-
-To sync with upstream, rebase all branches, and rebuild fork:
-
-```bash
-git checkout feature/fork-management   # Required: script lives on this branch
-uv run scripts/build-fork.py           # Full rebuild
-uv run scripts/build-fork.py --dry-run # Preview changes
-```
-
-This script:
-1. Fetches upstream and resets `main`
-2. Rebases each branch onto its base (topologically sorted)
-3. Merges all branches into `fork`
-4. Pushes everything to origin
-
-### Adding a New Branch
-
-1. Create from main: `git checkout -b feature/my-feature main`
-2. Make changes, commit, push
-3. **Create branch documentation** in `branches/<type>/<branch-name>.md` (see existing docs for format)
-4. Add entry to `fork.yaml` on `feature/fork-management` branch (include `docs:` field pointing to documentation)
-5. Run `uv run scripts/build-fork.py`
-
-**Important:** Changes to `fork.yaml`, `CLAUDE.md`, and other fork infrastructure belong in the `feature/fork-management` branch, not directly on `fork`. The `fork` branch is rebuilt from component branches, so direct changes would be overwritten.
-
-### Removing a Branch
-
-1. Remove entry from `fork.yaml`
-2. Run `uv run scripts/build-fork.py`
-3. Optionally delete the branch: `git branch -d feature/old && git push origin --delete feature/old`
 
 ### Contributing Upstream
 
